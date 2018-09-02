@@ -13,8 +13,6 @@ void ATankPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	AimTowardsCrosshair();
-	
-
 }
 void ATankPlayerController::BeginPlay() {
 	Super::BeginPlay();
@@ -27,32 +25,49 @@ void ATankPlayerController::BeginPlay() {
 	else
 		UE_LOG(LogTemp, Warning, TEXT("Didn't get ATank"));
 }
-
 ATank* ATankPlayerController::GetControlledTank() const {
 	return Cast<ATank>(GetPawn());
 }
 
 void ATankPlayerController::AimTowardsCrosshair() {
 	if (!GetControlledTank()) {return;}
-
-	FVector HitLocation;
-	if (GetSightRayHitLocation(HitLocation)) {
-		UE_LOG(LogTemp, Warning, TEXT("Hit Location: %s"),*HitLocation.ToString());
-
-		//Get world location of linetrace through crosshair
-		// if it hits the landscape
-		//tell controlled tank to aim at this point
-
+	FVector hitLocation;
+	if (GetSightRayHitLocation(hitLocation)) {
+		GetControlledTank()->AimAt(hitLocation);
 	}
-
+	
 
 }
-bool ATankPlayerController::GetSightRayHitLocation(FVector &Hitlocation) const{
-	//GetWorld()->GetFirstPlayerController()->
-	Hitlocation = FVector(1.0);
+bool ATankPlayerController::GetSightRayHitLocation(FVector &hitLocation) const{
+	
+	int32 viewportSizeX, viewportSizeY;
+	GetViewportSize(viewportSizeX,viewportSizeY);
+	auto screenLocation= FVector2D(viewportSizeX*CrossHairXLocation, 
+								   viewportSizeY*CrossHairYLocation);
+	FVector lookDirection;
+	if (GetLookDirection(screenLocation, lookDirection)) {
+		GetLookVectorHitLocation(hitLocation,lookDirection);
+	}
 	return true;
+}
+bool ATankPlayerController::GetLookDirection(FVector2D screenLocation, FVector& lookDirection) const{
+	FVector location;
+	return DeprojectScreenPositionToWorld(screenLocation.X, screenLocation.Y, location, lookDirection);
+}
+bool ATankPlayerController::GetLookVectorHitLocation(FVector &hitLocation,FVector& lookDirection) const {
+	FHitResult hitResult;
+	auto startLocation = PlayerCameraManager->GetCameraLocation();
+	auto endLocation = startLocation + (lookDirection * LineTraceRange);
 
+	if (GetWorld()->LineTraceSingleByChannel(hitResult,startLocation,endLocation,
+											 ECollisionChannel::ECC_Visibility)) {
+		hitLocation = hitResult.Location;
+		return true;
+	}
+	hitLocation = FVector(0);
+	return false;
 
 }
+
 
 
